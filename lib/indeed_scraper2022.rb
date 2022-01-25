@@ -25,16 +25,73 @@ class IndeedScraper2022
     @results
   end
 
-  def page()
-  end
-
-  # used for debugging
-  #
-  def a2()
-    @a2
+  def page(n)
+    url = @results[n-1][:link]
+    fetchjob(url)
   end
 
   private
+
+  def fetchjob(url)
+
+    doc = Nokorexi.new(url).to_doc
+    e0 = doc.element("html/body/div/div/div/div/div/div/div/div")
+
+    #div = e0.element("//div[@class='jobsearch-JobComponent']")
+    div1 = e0.element("//div[@class='jobsearch-DesktopStickyContainer']")
+    div2 = div1.element("div")
+
+    # jobsearch (e.g. Full Stack Website Developer (Wordpress))
+    jobtitle = div2.element("div[@class='jobsearch-JobInfoHead"  \
+        "er-title-container']/h1[@class='jobsearch-JobInfoHead"  \
+        "er-title']").text
+
+    div3 = div2.element("div[@class='jobsearch-CompanyInfoCon"  \
+        "tainer']/div[@class='jobsearch-CompanyInfoWithoutHead"  \
+        "erImage']/div/div[@class='jobsearch-DesktopStickyCont"  \
+        "ainer-subtitle']")
+
+    # icl (e.g. Lyles Sutherland)
+    cname = div3.xpath("div[@class='jobsearch-DesktopSt"  \
+        "ickyContainer-companyrating']/div/div[@class='icl-u-x"  \
+        "s-mr--xs']")[1]
+    clink = div3.element('//a')
+    company = cname ? cname.text : clink.text
+    companylink = clink.attributes[:href] if clink
+
+    div5 = div3.xpath("div/div")
+    location, worklocation = div5.map(&:text).compact
+
+    # icl (e.g. Full-time, Permanent)
+    jobtype = div1.element("div/div/div[@class='jobsearch-J"  \
+        "obMetadataHeader-item']/span[@class='icl-u-xs-mt--xs']")
+    jobtype = jobtype.texts.join if jobtype
+
+    # jobsearch (e.g. Urgently needed)
+    jobnote1 = e0.element("//div[@class='jobsearch-DesktopTag"  \
+        "']/div[@class='urgently-hiring']/div[@class='jobsearc"  \
+        "h-DesktopTag-text']")
+    jobnote1 = jobnote1.text if jobnote1
+
+    # jobsearch (e.g. 10 days ago)
+    datepost = e0.element("//div[@class='jobsearch-JobTab-con"  \
+        "tent']/div[@class='jobsearch-JobMetadataFooter']/div").text
+
+    jobdesc = e0.element("//div[@class='icl-u-xs-mt--md']/div[@cl"  \
+        "ass='jobsearch-jobDescriptionText']")
+
+    {
+      title: jobtitle,
+      company: company,
+      companylink: companylink,
+      location: location,
+      worklocation: worklocation,
+      note: jobnote1,
+      date: (Date.today - datepost.to_i).to_s,
+      desc: jobdesc
+    }
+
+  end
 
   def search(q='', location='')
 
@@ -47,6 +104,7 @@ class IndeedScraper2022
     pg = form.submit
 
     doc2 = Nokogiri::XML(pg.body)
+
     a2 = doc2.xpath  "//a[div/div/div/div/table/tbody/tr/td/div]"
     puts 'a2: ' + a2.length.inspect if @debug
 
@@ -90,6 +148,8 @@ class IndeedScraper2022
       date = (Date.today - dateposted.first.to_i).to_s
 
       {
+        link:  @url_base.sub(/\/[^\/]+$/,'') \
+          + doc.root.attributes[:href].gsub(/&amp;/,'&'),
         title: jobtitle,
         salary: salary,
         company: company_name,
@@ -101,3 +161,5 @@ class IndeedScraper2022
     end
   end
 end
+
+
