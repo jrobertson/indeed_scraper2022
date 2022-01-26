@@ -44,7 +44,7 @@ class IndeedScraper2022
     # jobsearch (e.g. Full Stack Website Developer (Wordpress))
     jobtitle = div2.element("div[@class='jobsearch-JobInfoHead"  \
         "er-title-container']/h1[@class='jobsearch-JobInfoHead"  \
-        "er-title']").text
+        "er-title']")&.text
 
     div3 = div2.element("div[@class='jobsearch-CompanyInfoCon"  \
         "tainer']/div[@class='jobsearch-CompanyInfoWithoutHead"  \
@@ -70,15 +70,14 @@ class IndeedScraper2022
     # jobsearch (e.g. Urgently needed)
     jobnote1 = e0.element("//div[@class='jobsearch-DesktopTag"  \
         "']/div[@class='urgently-hiring']/div[@class='jobsearc"  \
-        "h-DesktopTag-text']")
-    jobnote1 = jobnote1.text if jobnote1
+        "h-DesktopTag-text']")&.text
 
     # jobsearch (e.g. 10 days ago)
     datepost = e0.element("//div[@class='jobsearch-JobTab-con"  \
-        "tent']/div[@class='jobsearch-JobMetadataFooter']/div").text
+        "tent']/div[@class='jobsearch-JobMetadataFooter']/div")&.text
 
     jobdesc = e0.element("//div[@class='icl-u-xs-mt--md']/div[@cl"  \
-        "ass='jobsearch-jobDescriptionText']")
+        "ass='jobsearch-jobDescriptionText']").xml
 
     {
       title: jobtitle,
@@ -120,28 +119,28 @@ class IndeedScraper2022
 
       # job title (e.g. Software Developer)
       jobtitle = td.element("div[@class='tapItem-gutter']/h2[@"  \
-          "class='jobTitle-color-purple']/span").text
+          "class='jobTitle-color-purple']/span")&.text
       puts 'jobtitle: ' + jobtitle.inspect if @debug
 
       salary = td.element("div[@class='metadataContainer']/"  \
           "div[@class='salary-snippet-container']/div[@class='sa"  \
-          "lary-snippet']/span")
-      salary = salary.text if salary
+          "lary-snippet']/span")&.text
+
       puts 'salary: ' + salary.inspect if @debug
       div1 = td.element("div[@class='companyInfo']")
 
       # company name (e.g. Coda Octopus Products Ltd)
-      company_name = div1.element("span[@class='companyName']").text
+      company_name = div1.element("span[@class='companyName']")&.text
 
       # company location (e.g. Edinburgh)
-      location = div1.element("div[@class='companyLocation']").text
+      location = div1.element("div[@class='companyLocation']")&.text
       tbody = div.element("table[@class='jobCardShelfContainer']/tbody")
 
       div3 = tbody.element("tr[@class='underShelfFooter']/td/di"  \
           "v[@class='result-footer']")
 
       # job (e.g. Our products are primarily written in C#, using...)
-      jobsnippet = div3.element("div[@class='job-snippet']/ul/li").text
+      jobsnippet = div3.xpath("div[@class='job-snippet']/ul/li/text()").join("\n")
 
       # visually (e.g. Posted 14 days ago)
       dateposted =  div3.element("span[@class='date']").texts
@@ -162,4 +161,18 @@ class IndeedScraper2022
   end
 end
 
+class IS22Plus < IndeedScraper2022
 
+  def initialize(q: '', location: '', debug: false)
+    super(q: q, location: location, debug: debug)
+  end
+
+  def list()
+
+    @results.map.with_index do |x,i|
+      "%2d. %s" % [i,x[:title]]
+    end.join("\n")
+
+  end
+
+end
