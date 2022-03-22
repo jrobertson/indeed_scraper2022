@@ -9,6 +9,9 @@ require 'nokorexi'
 # don't rely upon this gem working in the near future.
 
 
+class IndeedScraper2022Err < Exception
+end
+
 class IndeedScraper2022
 
   def initialize(url='https://uk.indeed.com/?r=us', q: '', location: '', debug: false)
@@ -26,6 +29,11 @@ class IndeedScraper2022
   end
 
   def page(n)
+
+    if n < 1 or n > @results.length then
+      raise IndeedScraper2022Err, 'Invalid page no.'
+    end
+
     url = @results[n-1][:link]
     fetchjob(url)
   end
@@ -170,7 +178,7 @@ class IS22Plus < IndeedScraper2022
   def list()
 
     @results.map.with_index do |x,i|
-      "%2d. %s" % [i,x[:title]]
+      "%2d. %s" % [i+1,x[:title]]
     end.join("\n")
 
   end

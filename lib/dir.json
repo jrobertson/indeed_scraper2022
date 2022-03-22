@@ -1,0 +1,29 @@
+{
+  "directory": {
+    "summary": {
+      "schema": "directory[title, file_path,  last_modified, description]/file(name, type, ext, mtime, description)",
+      "recordx_type": "dynarex",
+      "default_key": "name",
+      "title": "Index of /home/james/gem_src/indeed_scraper2022/lib",
+      "file_path": "/home/james/gem_src/indeed_scraper2022/lib",
+      "last_modified": "2022-03-06 12:20:40 +0000",
+      "description": null
+    },
+    "records": [
+      {
+        "file": {
+          "id": "1",
+          "created": "2022-03-06 12:20:40 +0000",
+          "last_modified": null,
+          "body": {
+            "name": "indeed_scraper2022.rb",
+            "type": "file",
+            "ext": ".rb",
+            "mtime": "2022-01-25 23:50:53 +0000",
+            "description": ""
+          }
+        }
+      }
+    ]
+  }
+}
