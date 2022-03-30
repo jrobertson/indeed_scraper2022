@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'indeed_scraper2022'
-  s.version = '0.2.0'
+  s.version = '0.2.1'
   s.summary = 'Attempts to scrape the indeed.com jobsearch results (1 page).'
   s.authors = ['James Robertson']
   s.files = Dir['lib/indeed_scraper2022.rb']

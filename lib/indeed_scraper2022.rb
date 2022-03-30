@@ -14,13 +14,17 @@ end
 
 class IndeedScraper2022
 
+  attr_reader :browser
+
   def initialize(url='https://uk.indeed.com/?r=us', q: '', location: '',
                  headless: true, cookies: nil, debug: false)
 
     @debug = debug
     @url_base, @q, @location = url, q, location
     @headless, @cookies = headless, cookies
-    @results = search(q: @q, location: @location)
+
+    fw = FerrumWizard.new( headless: @headless, cookies: @cookies, debug: @debug)
+    @browser = fw.browser
 
   end
 
@@ -32,35 +36,49 @@ class IndeedScraper2022
 
   def search(q: @q, location: @location, start: nil)
 
-    fw = FerrumWizard.new( headless: @headless, cookies: @cookies, debug: @debug)
-
     url = @url_base
     url += 'start=' + start if start
 
-    browser = fw.browser
-    browser.goto(url)
+    @browser.goto(url)
+    #@browser.network.wait_for_idle
+    puts 'sleeping for 4 seconds' if @debug
+    sleep 4
 
     if q.length > 1 then
-      input = browser.at_xpath("//input[@name='q']")
-      input.focus.type(q)
+
+      input = @browser.at_xpath("//input[@name='q']")
+
+      # select any existing text and overwrite it
+      input.focus.type(:home); sleep 0.2
+      input.focus.type(:shift, :end); sleep 0.2
+      input.focus.type(q); sleep 0.2
     end
 
     if location.length > 1 then
-      input2 = browser.at_xpath("//input[@name='l']")
-      input2.focus.type(location)
+
+      input2 = @browser.at_xpath("//input[@name='l']")
+
+      # select any existing text and overwrite it
+      input2.focus.type(:home); sleep 0.2
+      input2.focus.type(:shift, :end); sleep 0.2
+      input2.focus.type(location); sleep 0.2
+
     end
 
-    button = browser.at_xpath("//button[@type='submit']")
+    button = @browser.at_xpath("//button[@type='submit']")
     button.click
+    #@browser.network.wait_for_idle
+    puts 'sleeping for 2 seconds' if @debug
+    sleep 2
 
-    doc2 = Nokogiri::XML(browser.body)
+    doc2 = Nokogiri::XML(@browser.body)
 
     a2 = doc2.xpath  "//a[div/div/div/div/table/tbody/tr/td/div]"
     puts 'a2: ' + a2.length.inspect if @debug
 
     @a2 = a2.map {|x| Rexle.new x.to_s }
 
-    @a2.map do |doc|
+    @results = @a2.map do |doc|
 
       div = doc.element("a[@class='desktop']/div[@class='slider"  \
           "_container']/div[@class='slider_list']/div[@class='sl"  \
@@ -202,7 +220,9 @@ class IS22Plus < IndeedScraper2022
 
   def archive()
 
-    1.upto(15).each do |n|
+    return unless @results
+
+    1.upto(@results.length).each do |n|
       page(n)
     end
 
