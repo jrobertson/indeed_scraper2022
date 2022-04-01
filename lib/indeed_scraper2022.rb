@@ -4,9 +4,11 @@
 
 require 'ferrumwizard'
 require 'nokorexi'
+require 'yaml'
 
 # Given the nature of changes to jobsearch websites,
 # don't rely upon this gem working in the near future.
+
 
 
 class IndeedScraper2022Err < Exception
@@ -218,13 +220,52 @@ class IS22Plus < IndeedScraper2022
           debug: debug)
   end
 
-  def archive()
+  def archive(filepath='/tmp/indeed')
 
     return unless @results
 
-    1.upto(@results.length).each do |n|
-      page(n)
+    FileUtils.mkdir_p filepath
+
+    idxfile = File.join(filepath, 'index.yml')
+
+    index = if File.exists? idxfile then
+      YAML.load(File.read(idxfile))
+    else
+      {}
     end
+
+    @results.each.with_index do |item, i|
+
+      puts 'saving ' + item[:title] if @debug
+      puts 'link: ' + item[:link].inspect
+      links = RXFReader.reveal(item[:link])
+      puts 'links: ' + links.inspect
+
+      url = links.last
+      id = url[/(?<=\?jk=)[^&]+/]
+
+      if index[id.to_sym] then
+        next
+      else
+
+        File.write File.join(filepath, 'j' + id + '.txt'), page(i+1)
+
+        h = {
+          link: url[/^[^&]+/],
+          title: item[:title].to_s,
+          salary: item[:salary].to_s,
+          company: item[:company].to_s.strip,
+          location: item[:location].to_s,
+          jobsnippet: item[:jobsnippet],
+          date: item[:date]
+        }
+
+        index[id.to_sym] = h
+      end
+
+    end
+
+    File.write idxfile, index.to_yaml
 
   end
 
