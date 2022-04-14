@@ -11,6 +11,13 @@ require 'yaml'
 
 
 
+# this gem consists of 3 main classes:
+#
+# *  IndeedScraper2022 - Scrapes a page of vacancies from indeed.com
+# *  IS22Plus - Archives the scraped vacancies to local file
+# *  IS22Archive - Allows viewing of archived vacancies offline
+#
+
 class IndeedScraper2022Err < Exception
 end
 
@@ -146,52 +153,65 @@ class IndeedScraper2022
   def fetchjob(url)
 
     doc = Nokorexi.new(url).to_doc
+    puts 'before e0' if @debug
     e0 = doc.element("html/body/div/div/div/div/div/div/div/div")
 
     #div = e0.element("//div[@class='jobsearch-JobComponent']")
+    puts 'before div1' if @debug
     div1 = e0.element("//div[@class='jobsearch-DesktopStickyContainer']")
+    puts 'before div2' if @debug
     div2 = div1.element("div")
 
     # jobsearch (e.g. Full Stack Website Developer (Wordpress))
+    puts 'before jobtitle' if @debug
     jobtitle = div2.element("div[@class='jobsearch-JobInfoHead"  \
         "er-title-container']/h1[@class='jobsearch-JobInfoHead"  \
         "er-title']")&.text
 
+    puts 'before div3' if @debug
     div3 = div2.element("div[@class='jobsearch-CompanyInfoCon"  \
         "tainer']/div[@class='jobsearch-CompanyInfoWithoutHead"  \
         "erImage']/div/div[@class='jobsearch-DesktopStickyCont"  \
         "ainer-subtitle']")
 
     # icl (e.g. Lyles Sutherland)
+    puts 'before cname' if @debug
     cname = div3.xpath("div[@class='jobsearch-DesktopSt"  \
         "ickyContainer-companyrating']/div/div[@class='icl-u-x"  \
         "s-mr--xs']")[1]
+    puts 'before clink' if @debug
     clink = div3.element('//a')
     company = cname.text ? cname.text : clink.text
     companylink = clink.attributes[:href] if clink
 
+    puts 'before salary' if @debug
     salary = div1.element("//span[@class='attribute_snippet']")&.text
+    puts 'before type' if @debug
     type = div1.element("//span[@class='jobsearch-JobMetadataHeader-item']")&.texts&.last
     div5 = div3.xpath("div/div")
     location, worklocation = div5.map(&:text).compact
 
     # icl (e.g. Full-time, Permanent)
+    puts 'before jobtype' if @debug
     jobtype = div1.element("div/div/div[@class='jobsearch-J"  \
         "obMetadataHeader-item']/span[@class='icl-u-xs-mt--xs']")
     jobtype = jobtype&.texts.join if jobtype
 
     # jobsearch (e.g. Urgently needed)
+    puts 'before jobnote1' if @debug
     jobnote1 = e0.element("//div[@class='jobsearch-DesktopTag"  \
         "']/div[@class='urgently-hiring']/div[@class='jobsearc"  \
         "h-DesktopTag-text']")&.text
 
     # jobsearch (e.g. 10 days ago)
+    puts 'before days' if @debug
     days = e0.element("//div[@class='jobsearch-JobTab-con"  \
         "tent']/div[@class='jobsearch-JobMetadataFooter']/div[2]")&.text
     d = Date.today - days.to_i
     datepost = d.strftime("%Y-%m-%d")
 
 
+    puts 'before jobdesc' if @debug
     jobdesc = e0.element("//div[@class='icl-u-xs-mt--md']/div[@cl"  \
         "ass='jobsearch-jobDescriptionText']").xml
 
@@ -220,7 +240,12 @@ class IS22Plus < IndeedScraper2022
           debug: debug)
   end
 
+  # note: The most efficient method to accumulate vacancy articles is to
+  #       execute archive() daily
+  #
   def archive(filepath='/tmp/indeed')
+
+    search() if @results.nil?
 
     return unless @results
 
@@ -239,15 +264,22 @@ class IS22Plus < IndeedScraper2022
       puts 'saving ' + item[:title] if @debug
       puts 'link: ' + item[:link].inspect
       links = RXFReader.reveal(item[:link])
-      puts 'links: ' + links.inspect
+      puts 'links: ' + links.inspect if @debug
 
       url = links.last
-      id = url[/(?<=\?jk=)[^&]+/]
+      puts 'url: ' + url.inspect if @debug
+      id = url[/(?<=jk=)[^&]+/]
 
       if index[id.to_sym] then
+
+        # the vacancy record has previously been saved
+        #
         next
+
       else
 
+        # write the full page vacancy article to file
+        #
         File.write File.join(filepath, 'j' + id + '.txt'), page(i+1)
 
         h = {
@@ -257,14 +289,19 @@ class IS22Plus < IndeedScraper2022
           company: item[:company].to_s.strip,
           location: item[:location].to_s,
           jobsnippet: item[:jobsnippet],
-          date: item[:date]
+          date: item[:date],
+          added: Time.now.strftime("%Y-%m-%d")
         }
 
+        # add the vacancy snippet to the index file
+        #
         index[id.to_sym] = h
       end
 
     end
 
+    # save the vacancy index file
+    #
     File.write idxfile, index.to_yaml
 
   end
@@ -277,5 +314,40 @@ class IS22Plus < IndeedScraper2022
 
   end
 
+
+end
+
+
+class IS22Archive
+
+  attr_reader :index
+
+  def initialize(filepath='/tmp/indeed', debug: false)
+
+    @debug = debug
+
+    FileUtils.mkdir_p filepath
+    @idxfile = File.join(filepath, 'index.yml')
+
+    @index = if File.exists? @idxfile then
+      YAML.load(File.read(@idxfile))
+    else
+      {}
+    end
+
+  end
+
+  def list()
+
+    @index.map.with_index do |x,i|
+
+      id, h = x
+
+      puts 'h: ' + h.inspect if @debug
+      "%2d. %s: %s" % [i+1, Date.parse(h[:added]).strftime("%d %b"), h[:title]]
+
+    end.join("\n")
+
+  end
 
 end
