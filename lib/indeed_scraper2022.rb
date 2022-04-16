@@ -108,7 +108,9 @@ class IndeedScraper2022
       div1 = td.element("div[@class='companyInfo']")
 
       # company name (e.g. Coda Octopus Products Ltd)
-      company_name = div1.element("span[@class='companyName']")&.text
+      coname = div1.element("span[@class='companyName']")
+      puts 'coname: ' + coname.text.inspect if @debug
+      company_name = coname.text.to_s.strip.length > 1 ? coname.text : coname.element('a').text
 
       # company location (e.g. Edinburgh)
       location = div1.element("div[@class='companyLocation']")&.text
@@ -339,12 +341,13 @@ class IS22Archive
 
   def list()
 
-    @index.map.with_index do |x,i|
+    @index.to_a.reverse.map.with_index do |x,i|
 
       id, h = x
 
       puts 'h: ' + h.inspect if @debug
-      "%2d. %s: %s" % [i+1, Date.parse(h[:added]).strftime("%d %b"), h[:title]]
+      co = h[:company].length > 1 ? " (%s)" % h[:company] : ''
+      "%2d. %s: %s%s" % [i+1, Date.parse(h[:added]).strftime("%d %b"), h[:title], co]
 
     end.join("\n")
 
