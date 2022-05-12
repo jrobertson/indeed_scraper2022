@@ -5,6 +5,7 @@
 require 'ferrumwizard'
 require 'nokorexi'
 require 'yaml'
+require 'reveal_url22'
 
 # Given the nature of changes to jobsearch websites,
 # don't rely upon this gem working in the near future.
@@ -44,9 +45,10 @@ class IndeedScraper2022
   end
 
   def search(q: @q, location: @location, start: nil)
-
+    puts 'inside search' if @debug
     url = @url_base
     url += 'start=' + start if start
+    puts 'url: ' + url.inspect if @debug
 
     @browser.goto(url)
     #@browser.network.wait_for_idle
@@ -81,28 +83,44 @@ class IndeedScraper2022
     sleep 2
 
     doc2 = Nokogiri::XML(@browser.body)
+    File.write '/tmp/body.txt', doc2.to_s if @debug
 
-    a2 = doc2.xpath  "//a[div/div/div/div/table/tbody/tr/td/div]"
+    a2 = doc2.root.xpath  "//li/div[div/div/div/div/table/tbody/tr/td/div/h2/a]"
     puts 'a2: ' + a2.length.inspect if @debug
 
     @a2 = a2.map {|x| Rexle.new x.to_s }
 
     @results = @a2.map do |doc|
 
-      div = doc.element("a[@class='desktop']/div[@class='slider"  \
+      div = doc.element("div[@class='cardOutline']/div[@class='slider"  \
           "_container']/div[@class='slider_list']/div[@class='sl"  \
           "ider_item']/div[@class='job_seen_beacon']")
+
       td = div.element("table[@class='jobCard_mainContent']/tbo"  \
           "dy/tr/td[@class='resultContent']")
 
       # job title (e.g. Software Developer)
-      jobtitle = td.element("div[@class='tapItem-gutter']/h2[@"  \
-          "class='jobTitle-color-purple']/span")&.text
+      job = td.element("div[@class='tapItem-gutter']/h2[@"  \
+          "class='jobTitle-color-purple']/a")
+      href = job.attributes[:href]
+      jobtitle = job.element("span")&.text
+
       puts 'jobtitle: ' + jobtitle.inspect if @debug
 
-      salary = td.element("div[@class='metadataContainer']/"  \
-          "div[@class='salary-snippet-container']/div[@class='sa"  \
-          "lary-snippet']/span")&.text
+      sal = td.element("div[@class='metadataContainer']/"  \
+          "div[@class='salary-snippet-container']")
+
+      salary = if sal then
+        sal_e = sal.element("div[@class='attribute_snippet']")
+        if sal_e then
+          sal_e.texts[0]
+        else
+          sal_e2 = sal.element("div[@class='salary-snippet']/span")
+          sal_e2 ? sal_e2.text : ''
+        end
+      else
+        ''
+      end
 
       puts 'salary: ' + salary.inspect if @debug
       div1 = td.element("div[@class='companyInfo']")
@@ -120,7 +138,12 @@ class IndeedScraper2022
           "v[@class='result-footer']")
 
       # job (e.g. Our products are primarily written in C#, using...)
-      jobsnippet = div3.xpath("div[@class='job-snippet']/ul/li/text()").join("\n")
+      advert_items = div3.xpath("div[@class='job-snippet']/ul/li/text()")
+      jobsnippet = if advert_items.any? then
+        advert_items.join("\n")
+      else
+        div3.element("div[@class='job-snippet']").text
+      end
 
       # visually (e.g. Posted 14 days ago)
       dateposted =  div3.element("span[@class='date']")&.texts
@@ -128,7 +151,7 @@ class IndeedScraper2022
 
       {
         link:  @url_base.sub(/\/[^\/]+$/,'') \
-          + doc.root.attributes[:href].gsub(/&amp;/,'&'),
+          + href.gsub(/&amp;/,'&'),
         title: jobtitle,
         salary: salary,
         company: company_name,
@@ -239,7 +262,7 @@ class IS22Plus < IndeedScraper2022
 
   def initialize(q: '', location: '', headless: true, cookies: nil, debug: false)
     super(q: q, location: location, headless: headless, cookies: cookies,
-          debug: debug)
+          debug: true)
   end
 
   # note: The most efficient method to accumulate vacancy articles is to
@@ -265,7 +288,7 @@ class IS22Plus < IndeedScraper2022
 
       puts 'saving ' + item[:title] if @debug
       puts 'link: ' + item[:link].inspect
-      links = RXFReader.reveal(item[:link])
+      links = URL.reveal(item[:link])
       puts 'links: ' + links.inspect if @debug
 
       url = links.last
@@ -325,8 +348,6 @@ class IS22Archive
   attr_reader :index
 
   def initialize(filepath='/tmp/indeed', debug: false)
-
-    @debug = debug
 
     FileUtils.mkdir_p filepath
     @idxfile = File.join(filepath, 'index.yml')
