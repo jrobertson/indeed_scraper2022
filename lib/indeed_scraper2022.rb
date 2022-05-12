@@ -288,10 +288,8 @@ class IS22Plus < IndeedScraper2022
 
       puts 'saving ' + item[:title] if @debug
       puts 'link: ' + item[:link].inspect
-      links = URL.reveal(item[:link])
-      puts 'links: ' + links.inspect if @debug
-
-      url = links.last
+      url = URL.reveal(item[:link])
+      item[:link] = url
       puts 'url: ' + url.inspect if @debug
       id = url[/(?<=jk=)[^&]+/]
 
@@ -313,7 +311,7 @@ class IS22Plus < IndeedScraper2022
           salary: item[:salary].to_s,
           company: item[:company].to_s.strip,
           location: item[:location].to_s,
-          jobsnippet: item[:jobsnippet],
+          jobsnippet: item[:jobsnippet].to_s,
           date: item[:date],
           added: Time.now.strftime("%Y-%m-%d")
         }
