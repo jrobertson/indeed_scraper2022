@@ -262,7 +262,7 @@ class IS22Plus < IndeedScraper2022
 
   def initialize(q: '', location: '', headless: true, cookies: nil, debug: false)
     super(q: q, location: location, headless: headless, cookies: cookies,
-          debug: true)
+          debug: debug)
   end
 
   # note: The most efficient method to accumulate vacancy articles is to
@@ -342,16 +342,17 @@ end
 
 
 class IS22Archive
+  include RXFReadWriteModule
 
   attr_reader :index
 
   def initialize(filepath='/tmp/indeed', debug: false)
 
-    FileUtils.mkdir_p filepath
+    FileX.mkdir_p filepath
     @idxfile = File.join(filepath, 'index.yml')
 
-    @index = if File.exists? @idxfile then
-      YAML.load(File.read(@idxfile))
+    @index = if FileX.exists? @idxfile then
+      YAML.load(FileX.read(@idxfile))
     else
       {}
     end
@@ -372,4 +373,67 @@ class IS22Archive
 
   end
 
+  def to_html()
+
+    rows = latest().map do |h|
+
+      puts 'h: ' + h.inspect if @debug
+      co = h[:company].length > 1 ? " (%s)" % h[:company] : ''
+      "* %s: [%s](%s)%s" % [h[:added].strftime("%d %b"), h[:title], h[:link], co]
+
+    end.join("\n")
+
+
+    md = '# Indeed.com: Latest jobs
+
+' + rows
+
+    RDiscount.new(md).to_html
+
+  end
+
+  def to_form(action: '')
+
+    rows = latest().map.with_index do |h, i|
+
+      co = h[:company].length > 1 ? " (%s)" % h[:company] : ''
+
+      "<input type='checkbox' id='#{h[:jobid]}' name='#{h[:jobid]}' value='#{h[:title]}'/>
+      <label for='j#{i}'>#{h[:added].strftime("%d %b")}: #{h[:title] + ' ' + co}</label><br/>
+      "
+
+    end.join("\n")
+
+
+    return "<form action='#{action}'>#{rows}" +
+        "<input type='submit' value='submit'/></form>"
+
+  end
+
+  def filter(a)
+
+    dx = Dynarex.new
+    a2 = latest().select {|h| a.include? h[:jobid] }
+    dx.import a2
+
+    return dx
+  end
+
+  private
+
+  def latest()
+
+    a = @index.to_a.map do |id, h|
+      h[:jobid] = id
+      h[:added] = Date.parse(h[:added]) if h[:added].is_a? String
+      h
+    end
+
+    a.select do |x|
+      x[:added] >= (Date.today - 7)
+    end.reverse
+
+  end
+
 end
+
